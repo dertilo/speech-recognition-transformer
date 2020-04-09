@@ -1,3 +1,5 @@
+import os
+
 import pytorch_lightning as pl
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
@@ -11,6 +13,7 @@ from src.utils.score import cal_wer
 from src.utils.tokenizer import tokenize
 import numpy as np
 
+data_path = os.path.join(os.environ['HOME'],'data/asr_data/ENGLISH/LibriSpeech')
 
 class LightningModel(pl.LightningModule):
     def __init__(self, hparams):
@@ -123,7 +126,7 @@ class LightningModel(pl.LightningModule):
         dataloader = build_raw_data_loader(
             [
                 # 'data/filterd_manifest/ce_200.csv',
-                'data/manifest/libri_train.csv',
+                data_path+'/lightning_manifests/dev-clean.csv',
                 # 'data/filterd_manifest/c_500_train.csv',
                 # 'data/filterd_manifest/aidatatang_200zh_train.csv',
                 # 'data/filterd_manifest/data_aishell_train.csv',
@@ -158,7 +161,7 @@ class LightningModel(pl.LightningModule):
         # )
         dataloader = build_raw_data_loader(
             [
-                'data/manifest/libri_test.csv',
+                data_path + '/lightning_manifests/dev-clean.csv',
                 # 'data/manifest/ce_20_dev.csv',
                 # 'data/filterd_manifest/c_500_test.csv',
                 # 'data/manifest/ce_20_dev_small.csv',
@@ -204,7 +207,7 @@ class LightningModel(pl.LightningModule):
         parser.add_argument('--num_head', default=8, type=int)
         parser.add_argument('--num_encoder_layer', default=6, type=int)
         parser.add_argument('--num_decoder_layer', default=6, type=int)
-        parser.add_argument('--vocab_path', default='testing_vocab_2.model', type=str)
+        parser.add_argument('--vocab_path', default=data_path+'/lightning_corpus/librispeech.model', type=str)
         parser.add_argument('--max_feature_length', default=1024, type=int)
         parser.add_argument('--max_token_length', default=50, type=int)
         parser.add_argument('--share_weight', default=True, type=bool)
