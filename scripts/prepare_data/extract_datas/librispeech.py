@@ -1,8 +1,7 @@
-import sys
 import os
-sys.path.append(os.getcwd())
-from scripts.utils.folder_tool import *
-import yaml
+from os.path import join
+from scripts.folder_tool import search_folder_for_post_fix_file_list, \
+    extract_corpus_from_target_dict, merge
 from tqdm import tqdm
 
 def extract_target(file_list):
@@ -22,17 +21,17 @@ def extract_name_fn(path):
     return path.split('/')[-1].split('.')[0]
 
 if __name__ == '__main__':
-    for raw_i in ['libri_500.tar.gz','libri_360.tar.gz','libri_100.tar.gz']:
-        config = yaml.safe_load(open('src/configs/default_config.yaml'))
-        corpus_root = config['data']['data_corpus_root']
-        extracted_root = config['data']['data_extracted_root']
-        manifest_root = config['data']['data_manifest_root']
-        raw = os.path.join('data/raw/', raw_i)
-        #raw = 'data/raw/libri_500.tar.gz'
-        prefix = raw.split('/')[-1].split('.')[0]
-        extracted_to = join(extracted_root, prefix)
-        manifest_csv_path = join(manifest_root, prefix + '.csv')
-        corpus_path = join(corpus_root, prefix + '.txt')
+    HOME = os.environ['HOME']
+    extracted_root = HOME+'/data/asr_data/ENGLISH/LibriSpeech'
+    manifest_root = extracted_root + '/lightning_manifest'
+    os.makedirs(manifest_root,exist_ok=True)
+    corpus_root = extracted_root + '/lightning_corpus'
+    os.makedirs(corpus_root,exist_ok=True)
+
+    for folder in ['dev-clean','dev-other']:
+        extracted_to = join(extracted_root, folder)
+        manifest_csv_path = join(manifest_root, folder + '.csv')
+        corpus_path = join(corpus_root, folder + '.txt')
 
         #extract_nested_file(raw, extracted_to, 'tar')
         wav_list = search_folder_for_post_fix_file_list(extracted_to, '.flac')

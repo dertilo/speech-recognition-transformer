@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.getcwd())
-from scripts.utils.folder_tool import *
+from scripts.folder_tool import *
 import yaml
 
 

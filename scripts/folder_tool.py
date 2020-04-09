@@ -5,7 +5,8 @@ from os.path import join
 import time
 import pandas as pd
 import torchaudio as ta
-from src_new.utils import tokenize, combine
+
+from src.utils.tokenizer import combine, tokenize
 
 
 class Logger(object):
