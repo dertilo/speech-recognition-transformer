@@ -16,3 +16,4 @@ pyvad
 PyYAML
 #warp_rna #TODO(tilo) ??
 #warp_rnnt
+#conda install -c conda-forge librosa

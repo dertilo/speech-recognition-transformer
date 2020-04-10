@@ -1,3 +1,11 @@
+# fork of https://github.com/PyTorchLightning/speech-transformer-pytorch_lightning
+    
+## steps
+1. build manifests `python scripts/prepare_data/extract_datas/librispeech.py`
+2. build sentencepiece vocab `python scripts/prepare_data/build_vocab.py`
+3. train model `python main_trans_eng.py`
+
+# original readme
 ## end2end chinese-english code-swiching speech recognition in pytorch
 
 This is a mixed project borrowing from many other open projects 
