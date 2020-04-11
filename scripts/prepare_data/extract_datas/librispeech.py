@@ -23,12 +23,14 @@ def extract_name_fn(path):
 if __name__ == '__main__':
     HOME = os.environ['HOME']
     extracted_root = HOME+'/data/asr_data/ENGLISH/LibriSpeech'
-    manifest_root = extracted_root + '/lightning_manifest'
+    manifest_root = extracted_root + '/lightning_manifests'
     os.makedirs(manifest_root,exist_ok=True)
     corpus_root = extracted_root + '/lightning_corpus'
     os.makedirs(corpus_root,exist_ok=True)
 
-    for folder in ['dev-clean','dev-other']:
+    folders = ['dev-clean', 'dev-other', "train-clean-100", "train-clean-360",
+              "train-other-500"]
+    for folder in ['train-other-500']:
         extracted_to = join(extracted_root, folder)
         manifest_csv_path = join(manifest_root, folder + '.csv')
         corpus_path = join(corpus_root, folder + '.txt')

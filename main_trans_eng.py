@@ -1,5 +1,9 @@
 from pytorch_lightning.trainer.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
+from scipy.sparse import (
+    csr_matrix,
+)  # TODO(tilo): if not imported before torch on HPC-cluster it throws: ImportError: /lib64/libstdc++.so.6: version `CXXABI_1.3.9' not found
+
 from src.model.transformer.lightning_model_eng import LightningModel
 import torch.backends.cudnn as cudnn
 import random
@@ -44,6 +48,8 @@ def main(hparams):
         log_save_interval=50000,
         row_log_interval=50000,
         gpus=1,
+        # precision=16,
+        # distributed_backend='ddp',
         nb_gpu_nodes=hparams.nb_gpu_nodes,
         max_nb_epochs=hparams.epochs,
         gradient_clip_val=5.0,

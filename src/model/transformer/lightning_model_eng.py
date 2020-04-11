@@ -61,7 +61,7 @@ class LightningModel(pl.LightningModule):
             feature, feature_length, target, target_length, True)
         ctc_loss = self.transformer.cal_ctc_loss(spec_output, feature_length, ori_token, ori_token_length)
         loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss / 2
-        tqdm_dict = {'loss': loss, 'ce': ce_loss,'switch': switch_loss, 'lr': self.lr}
+        tqdm_dict = {'train-loss': loss, 'ce': ce_loss,'switch': switch_loss, 'lr': self.lr}
         output = OrderedDict({
             'loss': loss,
             'ce': ce_loss,
@@ -84,7 +84,7 @@ class LightningModel(pl.LightningModule):
         mer = np.mean(mers)
         ctc_loss = self.transformer.cal_ctc_loss(spec_output, feature_length, ori_token, ori_token_length)
         loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss / 2
-        tqdm_dict = {'loss': loss, 'ce': ce_loss, 'switch': switch_loss, 'mer': mer, 'lr': self.lr}
+        tqdm_dict = {'val-loss': loss, 'ce': ce_loss, 'switch': switch_loss, 'mer': mer, 'lr': self.lr}
         output = OrderedDict({
             'loss': loss,
             'ce': ce_loss,
@@ -109,7 +109,6 @@ class LightningModel(pl.LightningModule):
         print('mer', mer)
         return {'val_loss': val_loss, 'val_ce_loss': ce_loss, 'val_mer': mer, 'log': {'val_loss': val_loss, 'val_ce_loss': ce_loss, 'val_mer': mer}}
 
-    @pl.data_loader
     def train_dataloader(self):
         # dataloader = build_multi_dataloader(
         #     record_root='data/tfrecords/{}.tfrecord',
@@ -126,7 +125,9 @@ class LightningModel(pl.LightningModule):
         dataloader = build_raw_data_loader(
             [
                 # 'data/filterd_manifest/ce_200.csv',
-                data_path+'/lightning_manifests/dev-clean.csv',
+                data_path+'/lightning_manifests/train-clean-100.csv',
+                data_path+'/lightning_manifests/train-clean-360.csv',
+                data_path+'/lightning_manifests/train-other-500.csv',
                 # 'data/filterd_manifest/c_500_train.csv',
                 # 'data/filterd_manifest/aidatatang_200zh_train.csv',
                 # 'data/filterd_manifest/data_aishell_train.csv',
@@ -144,7 +145,6 @@ class LightningModel(pl.LightningModule):
         )
         return dataloader
 
-    @pl.data_loader
     def val_dataloader(self):
         # dataloader = build_multi_dataloader(
         #     record_root='data/tfrecords/{}.tfrecord',
@@ -162,6 +162,7 @@ class LightningModel(pl.LightningModule):
         dataloader = build_raw_data_loader(
             [
                 data_path + '/lightning_manifests/dev-clean.csv',
+                data_path + '/lightning_manifests/dev-other.csv',
                 # 'data/manifest/ce_20_dev.csv',
                 # 'data/filterd_manifest/c_500_test.csv',
                 # 'data/manifest/ce_20_dev_small.csv',
