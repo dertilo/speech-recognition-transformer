@@ -24,6 +24,7 @@ def get_args():
     return parser.parse_args()
 
 def main(hparams):
+    data_path = os.environ['HOME']+'/data/asr_data/'
     model = LightningModel(hparams)
     if hparams.seed is not None:
         random.seed(hparams.seed)
@@ -33,7 +34,7 @@ def main(hparams):
     log_folder = 'lightning_logs'
     log_root = os.path.join(exp_root, log_folder)
     logger = TestTubeLogger(exp_root, name=log_folder, version=1020)
-    checkpoint = ModelCheckpoint(filepath='exp/lightning_logs/version_1020/checkpoints/',
+    checkpoint = ModelCheckpoint(filepath=data_path+'/checkpoints/',
                                  monitor='val_mer', verbose=1, save_top_k=-1)
     trainer = Trainer(
         logger=logger,
@@ -43,20 +44,21 @@ def main(hparams):
         # fast_dev_run=True,
         # overfit_pct=0.03,
         # profiler=True,
-        default_save_path='exp/',
+        default_save_path=data_path,
         val_check_interval=1.0,
-        log_save_interval=50000,
-        row_log_interval=50000,
+        log_save_interval=100,
+        row_log_interval=10,
         gpus=1,
-        # precision=16,
-        # distributed_backend='ddp',
+        precision=16,
+        distributed_backend='dp',
         nb_gpu_nodes=hparams.nb_gpu_nodes,
         max_nb_epochs=hparams.epochs,
         gradient_clip_val=5.0,
         min_nb_epochs=3000,
         use_amp=True,
         amp_level='O1',
-        nb_sanity_val_steps=0
+        nb_sanity_val_steps=0,
+        log_gpu_memory='all'
     )
     # if hparams.evaluate:
     #     trainer.run_evaluation()

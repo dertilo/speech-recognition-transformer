@@ -220,9 +220,9 @@ class LightningModel(pl.LightningModule):
         parser.add_argument('--factor', default=1, type=int)
         parser.add_argument('--enable_spec_augment', default=True, type=bool)
 
-        parser.add_argument('--train_batch_size', default=32, type=int)
-        parser.add_argument('--train_loader_num_workers', default=16, type=int)
-        parser.add_argument('--val_batch_size', default=32, type=int)
-        parser.add_argument('--val_loader_num_workers', default=16, type=int)
+        parser.add_argument('--train_batch_size', default=20, type=int)
+        parser.add_argument('--train_loader_num_workers', default=8, type=int)
+        parser.add_argument('--val_batch_size', default=20, type=int)
+        parser.add_argument('--val_loader_num_workers', default=8, type=int)
 
         return parser
