@@ -1,7 +1,7 @@
-# fork of https://github.com/PyTorchLightning/speech-transformer-pytorch_lightning
+# based on https://github.com/PyTorchLightning/speech-transformer-pytorch_lightning
     
 ## steps
-`export PYTHONPATH=/home/users/t/tilo-himmelsbach/SPEECH/speech-transformer-pytorch_lightning`
+`export PYTHONPATH=/home/users/t/tilo-himmelsbach/SPEECH/speech-transformer-pytorch_lightning`  
 on hpc: `module load comp`
 1. build manifests `python scripts/prepare_data/extract_datas/librispeech.py`
 2. build sentencepiece vocab `python scripts/prepare_data/build_vocab.py`

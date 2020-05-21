@@ -96,7 +96,7 @@ class LightningModel(pl.LightningModule):
         })
         return output
 
-    def validation_end(self, outputs):
+    def validation_epoch_end(self, outputs):
         val_loss = t.stack([i['loss'] for i in outputs]).mean()
         ce_loss = t.stack([i['ce'] for i in outputs]).mean()
         # ctc_loss = t.stack([i['ctc_loss'] for i in outputs]).mean()
