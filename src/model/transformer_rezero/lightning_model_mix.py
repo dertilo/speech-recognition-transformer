@@ -1,14 +1,19 @@
+import os
+
 import pytorch_lightning as pl
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
 import torch as t
-from src.loader.dataloader.audio_loader import build_data_loader
-from src.model.transformer_rezero.transformer import Transformer
-from src.utils.ranger import Ranger
+from src.data_loader.load_data.build_data_loader import build_single_dataloader, build_multi_dataloader
+from src.data_loader.load_data.build_raw_loader import build_raw_data_loader
+from src.model.transformer.transformer import Transformer
+from src.utils.radam import AdamW, RAdam
+from src.utils.lookahead import Lookahead
 from src.utils.score import cal_wer
 from src.utils.tokenizer import tokenize
 import numpy as np
 
+data_path = os.path.join(os.environ['HOME'],'data/asr_data/ENGLISH/LibriSpeech')
 
 class LightningModel(pl.LightningModule):
     def __init__(self, hparams):
@@ -37,10 +42,7 @@ class LightningModel(pl.LightningModule):
             enable_spec_augment=self.hparams.enable_spec_augment,
             share_weight=self.hparams.share_weight,
             smoothing=self.hparams.smoothing,
-            use_low_rank=self.hparams.use_low_rank
         )
-        # x = t.load('exp/lightning_logs/version_1023/checkpoints/epoch=103.ckpt')['state_dict']
-        # self.load_state_dict(x)
 
     def forward(self, feature, feature_length, target, target_length, cal_ce_loss=True):
         output, output_token, spec_output, feature_length, ori_token, ori_token_length, ce_loss, switch_loss = self.transformer.forward(
@@ -58,12 +60,12 @@ class LightningModel(pl.LightningModule):
         model_output, output_token, spec_output, feature_length, ori_token, ori_token_length, ce_loss, switch_loss = self.forward(
             feature, feature_length, target, target_length, True)
         ctc_loss = self.transformer.cal_ctc_loss(spec_output, feature_length, ori_token, ori_token_length)
-        loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss
-        tqdm_dict = {'ce': ce_loss, 'ctc': ctc_loss, 'switch': switch_loss, 'lr': self.lr}
+        loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss / 2
+        tqdm_dict = {'train-loss': loss, 'ce': ce_loss,'switch': switch_loss, 'lr': self.lr}
         output = OrderedDict({
             'loss': loss,
             'ce': ce_loss,
-            'ctc': ctc_loss,
+            # 'ctc_loss': ctc_loss,
             'switch': switch_loss,
             'progress_bar': tqdm_dict,
             'log': tqdm_dict
@@ -81,12 +83,12 @@ class LightningModel(pl.LightningModule):
         mers = [cal_wer(i[0], i[1]) for i in zip(target_string_list, result_string_list)]
         mer = np.mean(mers)
         ctc_loss = self.transformer.cal_ctc_loss(spec_output, feature_length, ori_token, ori_token_length)
-        loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss
-        tqdm_dict = {'loss': loss, 'ce': ce_loss, 'ctc': ctc_loss, 'switch': switch_loss, 'mer': mer, 'lr': self.lr}
+        loss = self.hparams.loss_lambda * ce_loss + (1 - self.hparams.loss_lambda) * ctc_loss + switch_loss / 2
+        tqdm_dict = {'val-loss': loss, 'ce': ce_loss, 'switch': switch_loss, 'mer': mer, 'lr': self.lr}
         output = OrderedDict({
             'loss': loss,
             'ce': ce_loss,
-            'ctc': ctc_loss,
+            # 'ctc_loss': ctc_loss,
             'switch': switch_loss,
             'mer': mer,
             'progress_bar': tqdm_dict,
@@ -94,32 +96,39 @@ class LightningModel(pl.LightningModule):
         })
         return output
 
-    def validation_end(self, outputs):
+    def validation_epoch_end(self, outputs):
         val_loss = t.stack([i['loss'] for i in outputs]).mean()
         ce_loss = t.stack([i['ce'] for i in outputs]).mean()
-        ctc_loss = t.stack([i['ctc'] for i in outputs]).mean()
+        # ctc_loss = t.stack([i['ctc_loss'] for i in outputs]).mean()
         switch_loss = t.stack([i['switch'] for i in outputs]).mean()
         mer = np.mean([i['mer'] for i in outputs])
         print('val_loss', val_loss.item())
         print('ce', ce_loss.item())
-        print('ctc', ctc_loss.item())
+        # print('ctc', ctc_loss.item())
         print('switch_loss', switch_loss.item())
         print('mer', mer)
-        ret = {
-            'val_loss': val_loss, 'val_ce_loss': ce_loss, 'val_ctc_loss': ctc_loss, 'val_mer': mer, 'val_switch':switch_loss,
-            'log': {
-                'val_loss': val_loss, 'val_ctc_loss': ctc_loss, 'val_ce_loss': ce_loss, 'val_mer': mer, 'val_switch':switch_loss
-            }
-        }
-
-        return ret
+        return {'val_loss': val_loss, 'val_ce_loss': ce_loss, 'val_mer': mer, 'log': {'val_loss': val_loss, 'val_ce_loss': ce_loss, 'val_mer': mer}}
 
     def train_dataloader(self):
-        dataloader = build_data_loader(
+        # dataloader = build_multi_dataloader(
+        #     record_root='data/tfrecords/{}.tfrecord',
+        #     index_root='data/tfrecord_index/{}.index',
+        #     data_name_list=[
+        #         # 'magic_data_train_562694',
+        #         'data_aishell_train_117346',
+        #         # 'c_500_train_549679',
+        #         # 'ce_200_161001'
+        #     ],
+        #     batch_size=self.hparams.train_batch_size,
+        #     num_workers=self.hparams.train_loader_num_workers
+        # )
+        dataloader = build_raw_data_loader(
             [
-                'data/filterd_manifest/ce_200.csv',
-                # 'data/manifest/libri_train.csv',
-                # 'data/filterd_manifest/c_500.csv',
+                # 'data/filterd_manifest/ce_200.csv',
+                data_path+'/lightning_manifests/train-clean-100.csv',
+                data_path+'/lightning_manifests/train-clean-360.csv',
+                data_path+'/lightning_manifests/train-other-500.csv',
+                # 'data/filterd_manifest/c_500_train.csv',
                 # 'data/filterd_manifest/aidatatang_200zh_train.csv',
                 # 'data/filterd_manifest/data_aishell_train.csv',
                 # 'data/filterd_manifest/AISHELL-2.csv',
@@ -131,54 +140,57 @@ class LightningModel(pl.LightningModule):
             vocab_path=self.hparams.vocab_path,
             batch_size=self.hparams.train_batch_size,
             num_workers=self.hparams.train_loader_num_workers,
-            left_frames=5,
-            skip_frames=4,
-            min_duration=1,
-            max_duration=8,
-            given_rate=None
+            speed_perturb=True,
+            max_duration=15
         )
         return dataloader
 
     def val_dataloader(self):
-        dataloader = build_data_loader(
+        # dataloader = build_multi_dataloader(
+        #     record_root='data/tfrecords/{}.tfrecord',
+        #     index_root='data/tfrecord_index/{}.index',
+        #     data_name_list=[
+        #         'magic_data_test_small_2852',
+        #         'data_aishell_test_small_589',
+        #         # 'c_500_test_small_2245',
+        #         'ce_20_dev_small_814'
+        #     ],
+        #     batch_size=self.hparams.train_batch_size,
+        #     num_workers=self.hparams.train_loader_num_workers
+        #
+        # )
+        dataloader = build_raw_data_loader(
             [
-                'data/manifest/ce_20_dev.csv',
-                # 'data/manifest/libri_test.csv',
+                data_path + '/lightning_manifests/dev-clean.csv',
+                data_path + '/lightning_manifests/dev-other.csv',
+                # 'data/manifest/ce_20_dev.csv',
                 # 'data/filterd_manifest/c_500_test.csv',
-                # 'data/filterd_manifest/aidatatang_200zh_train.csv',
-                # 'data/filterd_manifest/data_aishell_dev.csv',
-                # 'data/filterd_manifest/AISHELL-2.csv',
-                # 'data/filterd_manifest/magic_data_train.csv',
-                # 'data/manifest/libri_100.csv',
-                # 'data/manifest/libri_360.csv',
-                # 'data/manifest/libri_500.csv'
+                # 'data/manifest/ce_20_dev_small.csv',
+                # 'aishell2_testing/manifest1.csv',
+                # 'data/filterd_manifest/data_aishell_test.csv'
             ],
             vocab_path=self.hparams.vocab_path,
             batch_size=self.hparams.train_batch_size,
             num_workers=self.hparams.train_loader_num_workers,
-            left_frames=5,
-            skip_frames=4,
-            min_duration=1,
-            max_duration=8,
-            given_rate=1.0
+            speed_perturb=False,
+            max_duration=15
         )
         return dataloader
 
-    # def optimizer_step(self, epoch_nb, batch_nb, optimizer, optimizer_i, second_order_closure=None):
-    #     lr = self.hparams.factor * (
-    #             (self.hparams.model_size ** -0.5) * min(
-    #         (self.global_step + 1) ** -0.5, (self.global_step + 1) * (self.hparams.warm_up_step ** -1.5))
-    #     )
-    #     self.lr = lr
-    #     for pg in optimizer.param_groups:
-    #         pg['lr'] = lr
-    #     optimizer.step()
-    #     optimizer.zero_grad()
+    def optimizer_step(self, epoch_nb, batch_nb, optimizer, optimizer_i, second_order_closure=None):
+        lr = self.hparams.factor * (
+                (self.hparams.model_size ** -0.5) * min(
+            (self.global_step + 1) ** -0.5, (self.global_step + 1) * (self.hparams.warm_up_step ** -1.5))
+        )
+        self.lr = lr
+        for pg in optimizer.param_groups:
+            pg['lr'] = lr
+        optimizer.step()
+        optimizer.zero_grad()
 
     def configure_optimizers(self):
-        optimizer = Ranger(self.parameters(), lr=self.hparams.lr)
-        # optimizer = AdamW(self.parameters(), lr=self.hparams.lr, betas=(0.9, 0.999), eps=1e-4)
-        # optimizer = Lookahead(optimizer)
+        optimizer = AdamW(self.parameters(), lr=self.hparams.lr, betas=(0.9, 0.997))
+        optimizer = Lookahead(optimizer)
         return optimizer
 
     @staticmethod
@@ -188,30 +200,29 @@ class LightningModel(pl.LightningModule):
         parser.add_argument('--num_time_mask', default=2, type=int)
         parser.add_argument('--freq_mask_length', default=30, type=int)
         parser.add_argument('--time_mask_length', default=20, type=int)
-        parser.add_argument('--feature_dim', default=480, type=int)
+        parser.add_argument('--feature_dim', default=400, type=int)
         parser.add_argument('--model_size', default=512, type=int)
         parser.add_argument('--feed_forward_size', default=2048, type=int)
         parser.add_argument('--hidden_size', default=64, type=int)
         parser.add_argument('--dropout', default=0.1, type=float)
         parser.add_argument('--num_head', default=8, type=int)
-        parser.add_argument('--num_encoder_layer', default=12, type=int)
+        parser.add_argument('--num_encoder_layer', default=6, type=int)
         parser.add_argument('--num_decoder_layer', default=6, type=int)
-        parser.add_argument('--vocab_path', default='testing_vocab.model', type=str)
+        parser.add_argument('--vocab_path', default=data_path+'/lightning_corpus/librispeech.model', type=str)
         parser.add_argument('--max_feature_length', default=1024, type=int)
-        parser.add_argument('--max_token_length', default=70, type=int)
+        parser.add_argument('--max_token_length', default=50, type=int)
         parser.add_argument('--share_weight', default=True, type=bool)
-        parser.add_argument('--loss_lambda', default=0.65, type=float)
+        parser.add_argument('--loss_lambda', default=0.8, type=float)
         parser.add_argument('--smoothing', default=0.1, type=float)
-        parser.add_argument('--use_low_rank', default=False, type=bool)
 
-        parser.add_argument('--lr', default=5e-6, type=float)
+        parser.add_argument('--lr', default=3e-4, type=float)
         parser.add_argument('--warm_up_step', default=16000, type=int)
         parser.add_argument('--factor', default=1, type=int)
         parser.add_argument('--enable_spec_augment', default=True, type=bool)
 
-        parser.add_argument('--train_batch_size', default=32, type=int)
-        parser.add_argument('--train_loader_num_workers', default=16, type=int)
-        parser.add_argument('--val_batch_size', default=32, type=int)
-        parser.add_argument('--val_loader_num_workers', default=16, type=int)
+        parser.add_argument('--train_batch_size', default=20, type=int)
+        parser.add_argument('--train_loader_num_workers', default=8, type=int)
+        parser.add_argument('--val_batch_size', default=20, type=int)
+        parser.add_argument('--val_loader_num_workers', default=8, type=int)
 
         return parser

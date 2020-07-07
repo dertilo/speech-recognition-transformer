@@ -1,0 +1,19 @@
+pandas
+prefetch_generator
+sentencepiece
+tqdm
+numpy
+pytorch_lightning
+torchaudio==0.4.0
+tfrecord
+torch==1.4.0
+test_tube
+ASR_metrics
+fire
+Flask
+python_speech_features
+pyvad
+PyYAML
+#warp_rna #TODO(tilo) ??
+#warp_rnnt
+#conda install -c conda-forge librosa

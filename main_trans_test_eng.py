@@ -1,6 +1,10 @@
 from pytorch_lightning.trainer.trainer import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from src_test.model.transformer.lightning_model_eng import LightningModel
+from scipy.sparse import (
+    csr_matrix,
+)  # TODO(tilo): if not imported before torch on HPC-cluster it throws: ImportError: /lib64/libstdc++.so.6: version `CXXABI_1.3.9' not found
+
+from src.model.transformer.lightning_model_eng import LightningModel
 import torch.backends.cudnn as cudnn
 import random
 import torch as t
@@ -9,7 +13,6 @@ import argparse
 from warnings import filterwarnings
 from pytorch_lightning.logging.test_tube_logger import TestTubeLogger
 filterwarnings('ignore')
-from pytorch_lightning.profiler import AdvancedProfiler
 
 
 def get_args():
@@ -20,8 +23,8 @@ def get_args():
     parser = LightningModel.add_model_specific_args(parent_parser)
     return parser.parse_args()
 
-
 def main(hparams):
+    data_path = os.environ['HOME']+'/data/asr_data/'
     model = LightningModel(hparams)
     if hparams.seed is not None:
         random.seed(hparams.seed)
@@ -30,32 +33,32 @@ def main(hparams):
     exp_root = 'exp'
     log_folder = 'lightning_logs'
     log_root = os.path.join(exp_root, log_folder)
-    logger = TestTubeLogger(exp_root, name=log_folder, version=5005)
-    checkpoint = ModelCheckpoint(filepath='exp/lightning_logs/version_5005/checkpoints/',
-                                 monitor='val_loss', verbose=True, save_top_k=-1, mode='min')
+    logger = TestTubeLogger(exp_root, name=log_folder, version=1020)
+    checkpoint = ModelCheckpoint(filepath=data_path+'/checkpoints/',
+                                 monitor='val_mer', verbose=1, save_top_k=-1)
     trainer = Trainer(
         logger=logger,
-        nb_sanity_val_steps=5,
         early_stop_callback=False,
         checkpoint_callback=checkpoint,
-        accumulate_grad_batches=8,
-        progress_bar_refresh_rate=10,
-        default_save_path='exp/',
+        # checkpoint_callback=checkpoint,
+        # fast_dev_run=True,
+        # overfit_pct=0.03,
+        # profiler=True,
+        default_save_path=data_path,
         val_check_interval=1.0,
-        log_save_interval=50000,
-        row_log_interval=50000,
-        # gpus=1,
+        log_save_interval=100,
+        row_log_interval=10,
+        gpus=1,
+        precision=16,
+        distributed_backend='dp',
         nb_gpu_nodes=hparams.nb_gpu_nodes,
         max_nb_epochs=hparams.epochs,
         gradient_clip_val=5.0,
         min_nb_epochs=3000,
-        gpus=1,
-        # num_nodes=1,
-        # distributed_backend='dp',
-        use_amp=False,
-        precision=32,
-        # amp_level='O1',
-        resume_from_checkpoint='exp/lightning_logs/version_5005/checkpoints/epoch=108.ckpt'
+        use_amp=True,
+        amp_level='O1',
+        nb_sanity_val_steps=0,
+        log_gpu_memory='all'
     )
     # if hparams.evaluate:
     #     trainer.run_evaluation()
